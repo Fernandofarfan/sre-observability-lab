@@ -1,0 +1,93 @@
+groups:
+  - name: sre-lab-alerts
+    rules:
+      # ---- Availability (Error Rate) ----
+      - alert: HighErrorRate_BurnRate_1h
+        expr: >
+          (
+            1 - (
+              sum(rate(http_requests_total{status_code!~"5.."}[1h]))
+              /
+              sum(rate(http_requests_total[1h]))
+            )
+          ) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: "High error rate detected (>2% in 1h window)"
+          description: >
+            The service error rate has exceeded 2% over a 1-hour window,
+            indicating an Error Budget burn that threatens the 99.5% SLO.
+            Current error rate: {{ $value | humanizePercentage }}.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_error_rate.md"
+
+      - alert: CriticalErrorRate_BurnRate_5m
+        expr: >
+          (
+            1 - (
+              sum(rate(http_requests_total{status_code!~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total[5m]))
+            )
+          ) > 0.10
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "Critical error rate detected (>10% in 5m window)"
+          description: >
+            The service error rate has exceeded 10% over a 5-minute window.
+            This represents a severe Error Budget burn requiring immediate action.
+            Current error rate: {{ $value | humanizePercentage }}.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_error_rate.md"
+
+      # ---- Latency ----
+      - alert: HighLatency_P95
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "P95 latency exceeds 500ms"
+          description: >
+            The 95th percentile request latency has exceeded 500ms for 5 minutes.
+            Current P95: {{ $value | humanizeDuration }}.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_latency.md"
+
+      - alert: CriticalLatency_P99
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 2m
+        labels:
+          severity: critical
+          slo: latency
+        annotations:
+          summary: "P99 latency exceeds 1 second"
+          description: >
+            The 99th percentile request latency has exceeded 1 second for 2 minutes.
+            Current P99: {{ $value | humanizeDuration }}.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_latency.md"
+
+      # ---- Saturation ----
+      - alert: HighRequestConcurrency
+        expr: avg_over_time(http_requests_in_progress[1m]) > 50
+        for: 1m
+        labels:
+          severity: warning
+          slo: saturation
+        annotations:
+          summary: "High concurrent request count (>50 for 1m)"
+          description: >
+            The number of concurrent in-flight requests has exceeded 50
+            for more than 1 minute, indicating potential resource saturation.
+            Current value: {{ $value }}.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_latency.md"
