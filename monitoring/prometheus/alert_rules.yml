@@ -135,6 +135,7 @@ groups:
             Prometheus has failed to scrape up{job="sre-lab-api"} for more
             than 1 minute — the API container is dead or unreachable, so
             golden-signal dashboards and SLO alerts are blind.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/infrastructure_down.md"
 
       - alert: AlertmanagerDown
         expr: up{job="sre-lab-alertmanager"} == 0
@@ -147,6 +148,7 @@ groups:
             Prometheus has failed to scrape up{job="sre-lab-alertmanager"}
             for more than 1 minute — firing alerts are not being routed or
             deduplicated, so nobody is being notified.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/infrastructure_down.md"
 
       - alert: WebhookReceiverDown
         expr: up{job="sre-lab-webhook-receiver"} == 0
@@ -159,6 +161,7 @@ groups:
             Prometheus has failed to scrape up{job="sre-lab-webhook-receiver"}
             for more than 1 minute — Alertmanager webhook notifications can
             no longer be delivered or observed.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/infrastructure_down.md"
 
       - alert: PromtailDown
         expr: up{job="sre-lab-promtail"} == 0
@@ -171,6 +174,7 @@ groups:
             Prometheus has failed to scrape up{job="sre-lab-promtail"} for
             more than 2 minutes — container logs are no longer flowing into
             Loki and log-based investigation is degraded.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/infrastructure_down.md"
 
       - alert: LokiDown
         expr: up{job="sre-lab-loki"} == 0
@@ -183,3 +187,4 @@ groups:
             Prometheus has failed to scrape up{job="sre-lab-loki"} for more
             than 1 minute — log ingestion and queries from Grafana are
             unavailable.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/infrastructure_down.md"

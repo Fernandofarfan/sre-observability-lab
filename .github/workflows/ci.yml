@@ -155,6 +155,10 @@ jobs:
           check_grafana_ready() {
             curl -fsS 'http://localhost:3000/api/health' | jq -e '.database == "ok"' > /dev/null
           }
+          check_dashboard_provisioned() {
+            curl -fsS -u admin:admin 'http://localhost:3000/api/search?query=Alert%20Delivery' \
+              | jq -e 'map(.title) | index("SRE Observability Lab - Alert Delivery") != null' > /dev/null
+          }
           check_alertmanager_ready() {
             curl -fsS 'http://localhost:9093/-/ready' > /dev/null
           }
@@ -213,6 +217,7 @@ jobs:
 
           echo "== Grafana =="
           retry "grafana ready" 12 5 check_grafana_ready
+          retry "alert delivery dashboard provisioned" 12 5 check_dashboard_provisioned
 
           echo "== Alertmanager =="
           retry "alertmanager ready" 12 5 check_alertmanager_ready

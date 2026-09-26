@@ -10,14 +10,14 @@ A production-grade SRE and observability lab demonstrating cloud-native monitori
 
 - **OpenTelemetry Instrumentation:** Automatic and manual distributed tracing with FastAPI, exporting traces to Jaeger via an OTel Collector.
 - **Prometheus Metrics:** Custom HTTP metrics (counters, histograms, gauges) exposed via ASGI middleware, scraped by Prometheus. Labels use route templates so cardinality stays bounded.
-- **Four Golden Signals Dashboard:** A complete Grafana dashboard visualizing Latency, Traffic, Errors, and Saturation in real-time.
+- **Four Golden Signals Dashboard:** A complete Grafana dashboard visualizing Latency, Traffic, Errors, and Saturation in real-time, plus an Alert Delivery dashboard for scrape-target health and the alerting pipeline.
 - **SLO/SLI Framework:** Formal definition of availability and latency SLOs with PromQL-based SLIs and Error Budget calculations.
 - **Multi-Window Burn-Rate Alerting:** Dual-window error budget burn-rate alerts (14.4x fast / 6x slow) in the style of the Google SRE workbook, not static thresholds.
 - **Alert Routing & Delivery:** Alertmanager routes by severity (critical → pager, warning → ticket) to a webhook receiver that logs alerts and exposes `alerts_received_total`, scraped by Prometheus.
 - **Infrastructure Alerting:** `up==0` liveness alerts for every monitored target (API, Alertmanager, webhook receiver, Promtail, Loki) so the monitoring pipeline itself is watched.
 - **Log Aggregation:** Structured JSON logs from the API shipped via Promtail to Loki, queryable from Grafana.
 - **Chaos Engineering:** Runtime fault injection (latency spikes, error storms, gradual degradation) controlled via API endpoints (optional `X-Chaos-Token` guard).
-- **Operational Runbooks:** Structured incident response documentation for high error rates and high latency scenarios.
+- **Operational Runbooks:** Structured incident response documentation for high error rates, high latency and infrastructure availability scenarios.
 
 ## Architecture
 

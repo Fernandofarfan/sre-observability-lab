@@ -22,7 +22,7 @@ graph LR
 | **OTel Collector** | OpenTelemetry Collector that receives traces via gRPC/HTTP, processes them in batches, and forwards them to Jaeger via OTLP. |
 | **Jaeger** | Distributed tracing backend that stores and visualizes traces from the API, enabling latency analysis and request flow inspection. |
 | **Prometheus** | Time-series database that scrapes the API plus the observability pipeline itself (webhook receiver, Promtail, Alertmanager, Loki) and evaluates alerting rules: SLO burn rates and infrastructure `up==0` availability. |
-| **Grafana** | Visualization platform displaying the Four Golden Signals dashboard, plus log exploration over Loki. |
+| **Grafana** | Visualization platform displaying the Four Golden Signals dashboard and the Alert Delivery dashboard (scrape targets and alert pipeline), plus log exploration over Loki. |
 | **Alertmanager** | Alert routing and deduplication: routes `severity=critical` to the pager receiver and `severity=warning` to the ticket receiver. |
 | **Webhook Receiver** | Small FastAPI service that ingests Alertmanager webhooks, emits structured JSON logs for every alert, and exposes `alerts_received_total` so notification delivery is itself observable. |
 | **Loki** | Log aggregation backend storing container logs (API and webhook receiver). |
@@ -36,7 +36,7 @@ graph LR
 4. **Trace Export:** Spans are batched by the SDK and exported via gRPC to the OTel Collector (`OTEL_TRACES_EXPORTER=none` disables export).
 5. **Trace Storage:** The OTel Collector forwards traces to Jaeger via OTLP, where they are indexed and stored.
 6. **Metrics Scraping:** Prometheus scrapes the `/metrics` endpoint every 5 seconds, storing time-series data.
-7. **Dashboard Rendering:** Grafana queries Prometheus and displays the Golden Signals in real-time dashboards.
+7. **Dashboard Rendering:** Grafana queries Prometheus and displays the Golden Signals and alert-delivery/pipeline health in real-time dashboards.
 8. **Alert Evaluation:** Prometheus evaluates multi-window burn-rate alert rules against collected metrics, firing alerts to Alertmanager when error budget consumption or latency SLOs are breached.
 9. **Alert Delivery:** Alertmanager routes firing alerts by severity to the webhook receiver, which logs them as JSON (shipped to Loki) and increments `alerts_received_total`.
 10. **Log Aggregation:** Promtail tails container stdout, Loki stores it, and Grafana queries it via the Loki datasource.
