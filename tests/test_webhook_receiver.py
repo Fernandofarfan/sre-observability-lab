@@ -99,3 +99,40 @@ async def test_unknown_label_values_are_bounded(receiver_client: httpx.AsyncClie
     assert 'status="other"' in body
     assert "evil-" not in body
     assert "banana" not in body
+
+
+@pytest.mark.asyncio
+async def test_ticket_receiver_ingests_alert(receiver_client: httpx.AsyncClient) -> None:
+    """Verify warning-severity alerts routed to the ticket receiver are counted."""
+    payload = {
+        "status": "firing",
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": {"alertname": "HighLatency_P95", "severity": "warning"},
+                "annotations": {},
+            }
+        ],
+    }
+    response = await receiver_client.post("/ticket", json=payload)
+    assert response.status_code == 200
+    assert response.json() == {"received": 1}
+
+    metrics = await receiver_client.get("/metrics/")
+    assert 'receiver="ticket"' in metrics.text
+    assert 'alertname="HighLatency_P95"' in metrics.text
+
+
+@pytest.mark.asyncio
+async def test_malformed_alert_entries_are_skipped(receiver_client: httpx.AsyncClient) -> None:
+    """Verify non-dict alerts and non-dict labels are handled without error."""
+    payload = {
+        "status": "firing",
+        "alerts": [
+            "not-a-dict",
+            {"status": "firing", "labels": "not-a-dict"},
+        ],
+    }
+    response = await receiver_client.post("/", json=payload)
+    assert response.status_code == 200
+    assert response.json() == {"received": 1}

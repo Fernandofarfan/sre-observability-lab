@@ -34,7 +34,7 @@ def setup_telemetry(app: FastAPI) -> None:
     Args:
         app: The FastAPI application instance to instrument.
     """
-    global _PROVIDER  # noqa: PLW0603
+    global _PROVIDER
 
     _PROVIDER = TracerProvider(resource=_RESOURCE)
 

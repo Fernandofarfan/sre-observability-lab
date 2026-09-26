@@ -1,5 +1,7 @@
 """Tests for chaos engineering endpoints."""
 
+import time
+
 import httpx
 import pytest
 
@@ -174,8 +176,27 @@ async def test_latency_rejects_negative_values(client: httpx.AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_errors_rejects_rate_out_of_range(client: httpx.AsyncClient) -> None:
+async def test_chaos_errors_rejects_rate_out_of_range(client: httpx.AsyncClient) -> None:
     """Verify error rates outside [0.0, 1.0] are rejected with 422."""
     for rate in (-0.1, 1.5):
         response = await client.post("/chaos/errors", json={"enabled": True, "rate": rate})
         assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_latency_injection_delays_business_requests(client: httpx.AsyncClient) -> None:
+    """Verify enabled latency injection actually delays business requests."""
+    await client.post("/chaos/latency", json={"enabled": True, "min_ms": 50, "max_ms": 50})
+
+    payload = {
+        "customer_id": "cust-latency-test",
+        "items": [{"product_id": "prod-001", "quantity": 1, "price": 10.00}],
+    }
+    start = time.perf_counter()
+    response = await client.post("/api/v1/orders", json=payload)
+    elapsed = time.perf_counter() - start
+
+    assert response.status_code == 201
+    assert elapsed >= 0.05
+
+    await client.post("/chaos/reset")

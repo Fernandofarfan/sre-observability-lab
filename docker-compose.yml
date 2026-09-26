@@ -25,6 +25,8 @@ services:
     command: ["uvicorn", "app.webhook_receiver.main:app", "--host", "0.0.0.0", "--port", "9095", "--workers", "1"]
     ports:
       - "9095:9095"
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:9095/healthz').raise_for_status()"]
       interval: 10s
@@ -120,6 +122,8 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     ports:
       - "3100:3100"
+    volumes:
+      - loki-data:/loki
     restart: unless-stopped
     networks:
       - sre-lab-network
@@ -143,6 +147,7 @@ volumes:
   prometheus-data:
   grafana-data:
   promtail-positions:
+  loki-data:
 
 networks:
   sre-lab-network:
