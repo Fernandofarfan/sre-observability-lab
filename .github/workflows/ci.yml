@@ -72,10 +72,20 @@ jobs:
 
       - name: Validate Promtail config
         run: |
-          docker run --rm \
+          mkdir -p /tmp/promtail-positions
+          cid=$(docker run -d \
             -v "$PWD/monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro" \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            grafana/promtail:3.1.1 -verify-config -config.file=/etc/promtail/config.yml
+            -v /tmp/promtail-positions:/tmp/promtail \
+            grafana/promtail:3.1.1 -config.file=/etc/promtail/config.yml)
+          sleep 8
+          if [ -z "$(docker ps -q --filter id="$cid")" ]; then
+            echo "Promtail exited early:"
+            docker logs "$cid"
+            exit 1
+          fi
+          docker stop "$cid"
+          echo "OK: promtail-config.yml"
 
       - name: Validate OTel Collector config
         run: |
