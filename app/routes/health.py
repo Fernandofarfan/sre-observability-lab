@@ -2,8 +2,9 @@
 
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
 
 from app.config import APP_START_TIME, settings
 
@@ -22,19 +23,20 @@ async def liveness() -> dict[str, str]:
 
 @router.get("/readyz")
 async def readiness() -> dict[str, str]:
-    """Readiness probe - verifies telemetry provider is available.
+    """Readiness probe - verifies telemetry is initialised.
+
+    The lifespan handler installs a real TracerProvider on startup; until
+    that happens the API returns 503 so load balancers do not route traffic
+    to an instance that cannot serve traces.
 
     Returns:
         JSON indicating the service is ready.
 
     Raises:
-        503: If the tracer provider is not initialised.
+        503: If the tracer provider has not been installed yet.
     """
-    provider = trace.get_tracer_provider()
-    if provider is None:
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(status_code=503, content={"status": "not ready"})
+    if not isinstance(trace.get_tracer_provider(), TracerProvider):
+        raise HTTPException(status_code=503, detail="telemetry not initialised")
     return {"status": "ready"}
 
 

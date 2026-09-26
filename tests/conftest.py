@@ -3,7 +3,12 @@
 import httpx
 import pytest
 
+from app.config import settings
 from app.main import app
+from app.telemetry import setup_telemetry
+
+settings.OTEL_TRACES_EXPORTER = "none"
+setup_telemetry(app)
 
 
 @pytest.fixture

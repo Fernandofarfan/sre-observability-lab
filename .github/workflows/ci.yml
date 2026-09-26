@@ -70,5 +70,117 @@ jobs:
           docker compose config -q
           echo "OK: docker-compose.yml"
 
+      - name: Validate Promtail config
+        run: |
+          docker run --rm \
+            -v "$PWD/monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            grafana/promtail:3.1.1 -verify-config -config.file=/etc/promtail/config.yml
+
+      - name: Validate OTel Collector config
+        run: |
+          cid=$(docker run -d \
+            -v "$PWD/monitoring/otel-collector/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro" \
+            otel/opentelemetry-collector-contrib:0.108.0)
+          sleep 8
+          if [ -z "$(docker ps -q --filter id="$cid")" ]; then
+            echo "OTel Collector exited early:"
+            docker logs "$cid"
+            exit 1
+          fi
+          docker stop "$cid"
+          echo "OK: otel-collector-config.yml"
+
       - name: Build API Docker image
         run: docker build -t sre-lab-api:ci .
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    needs: validate-configs
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build and start the full stack
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait --wait-timeout 240
+
+      - name: Smoke test the stack
+        run: |
+          set -euo pipefail
+
+          retry() {
+            local desc="$1" attempts="$2" delay="$3"
+            shift 3
+            for i in $(seq 1 "$attempts"); do
+              if "$@"; then echo "OK: $desc"; return 0; fi
+              echo "waiting for $desc (attempt $i/$attempts)"
+              sleep "$delay"
+            done
+            echo "FAILED: $desc"
+            return 1
+          }
+
+          check_up() {
+            curl -fsSG 'http://localhost:9090/api/v1/query' \
+              --data-urlencode 'query=up{job="sre-lab-api"}' \
+              | jq -e '.data.result[0].value[1] == "1"' > /dev/null
+          }
+          check_trace() {
+            curl -fsS 'http://localhost:16686/api/services' \
+              | jq -e '.data | index("sre-observability-lab") != null' > /dev/null
+          }
+          check_logs() {
+            curl -fsSG 'http://localhost:3100/loki/api/v1/query_range' \
+              --data-urlencode 'query={job="sre-observability-lab"}' \
+              --data-urlencode "start=$(date -d '10 minutes ago' +%s)000000000" \
+              --data-urlencode 'limit=1' \
+              | jq -e '.data.result | length > 0' > /dev/null
+          }
+
+          echo "== API =="
+          curl -fsS http://localhost:8000/healthz
+          echo
+          curl -fsS http://localhost:8000/readyz
+          echo
+          curl -fsS -X POST http://localhost:8000/api/v1/orders \
+            -H 'Content-Type: application/json' \
+            -d '{"customer_id":"ci-user","items":[{"product_id":"sku-1","quantity":2,"price":4.99}]}'
+          echo
+          curl -fsSL http://localhost:8000/metrics/ | grep -q '^http_requests_total{'
+
+          echo "== Webhook receiver =="
+          curl -fsS http://localhost:9095/healthz
+          echo
+
+          echo "== Prometheus =="
+          curl -fsS http://localhost:9090/-/ready
+          echo
+          retry "prometheus scraping api" 24 5 check_up
+
+          echo "== Grafana =="
+          curl -fsS http://localhost:3000/api/health | jq -e '.database == "ok"'
+
+          echo "== Alertmanager =="
+          curl -fsS http://localhost:9093/-/ready
+          echo
+
+          echo "== Loki =="
+          curl -fsS http://localhost:3100/ready
+          echo
+          retry "logs ingested into loki" 30 5 check_logs
+
+          echo "== Jaeger =="
+          retry "trace exported to jaeger" 30 5 check_trace
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs --tail 300
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
