@@ -170,10 +170,15 @@ jobs:
               --data-urlencode 'query=alerts_received_total{job="sre-lab-webhook-receiver",receiver="pager",alertname="other"}' \
               | jq -e '.data.result[0].value[1] | tonumber >= 1' > /dev/null
           }
-          check_json_logs() {
+          check_all_json_logs() {
             local line
-            line=$(docker compose logs --no-log-prefix --tail 200 "$1" 2>/dev/null | grep '^{' | sed -n '1p')
-            [ -n "$line" ] && echo "$line" | jq -e '.timestamp' > /dev/null
+            local total=0 bad=0
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              total=$((total + 1))
+              echo "$line" | jq -e . > /dev/null 2>&1 || bad=$((bad + 1))
+            done < <(docker compose logs --no-log-prefix --tail 200 "$1" 2>/dev/null)
+            [ "$total" -gt 0 ] && [ "$bad" -eq 0 ]
           }
           check_no_tracebacks() {
             local logs
@@ -182,6 +187,16 @@ jobs:
               echo "FAILED: Traceback found in api logs"
               return 1
             fi
+          }
+          check_alert_firing() {
+            curl -fsSG 'http://localhost:9090/api/v1/query' \
+              --data-urlencode 'query=ALERTS{alertname="ErrorBudgetBurnRate_Fast",alertstate="firing"}' \
+              | jq -e '.data.result | length > 0' > /dev/null
+          }
+          check_burn_alert_delivered() {
+            curl -fsSG 'http://localhost:9090/api/v1/query' \
+              --data-urlencode 'query=alerts_received_total{job="sre-lab-webhook-receiver",receiver="pager",alertname="ErrorBudgetBurnRate_Fast"}' \
+              | jq -e '.data.result[0].value[1] | tonumber >= 1' > /dev/null
           }
           check_loki_service_label() {
             curl -fsSG 'http://localhost:3100/loki/api/v1/query_range' \
@@ -231,10 +246,30 @@ jobs:
           retry "trace exported to jaeger" 30 5 check_trace
 
           echo "== Structured logs =="
-          retry "api logs are structured JSON" 12 5 check_json_logs api
-          retry "receiver logs are structured JSON" 12 5 check_json_logs webhook-receiver
+          retry "api logs are all structured JSON" 12 5 check_all_json_logs api
+          retry "receiver logs are all structured JSON" 12 5 check_all_json_logs webhook-receiver
           retry "no tracebacks in api logs" 3 5 check_no_tracebacks
           echo "OK: no tracebacks in api logs"
+
+          echo "== Alert firing and delivery =="
+          (
+            for _ in $(seq 1 180); do
+              curl -s -o /dev/null -X POST http://localhost:8000/api/v1/orders \
+                -H 'Content-Type: application/json' \
+                -d '{"customer_id":"alert-ci","items":[{"product_id":"sku-1","quantity":1,"price":1.00}]}' || true
+              sleep 0.5
+            done
+          ) &
+          traffic_pid=$!
+          curl -fsS -X POST http://localhost:8000/chaos/errors \
+            -H 'Content-Type: application/json' -d '{"enabled":true,"rate":1.0}'
+          echo
+          retry "fast burn-rate alert firing" 36 10 check_alert_firing
+          retry "burn-rate alert delivered to webhook" 18 10 check_burn_alert_delivered
+          curl -fsS -X POST http://localhost:8000/chaos/reset
+          echo
+          kill "$traffic_pid" 2>/dev/null || true
+          echo "OK: error budget alert fired, routed and delivered"
 
       - name: Collect diagnostics on failure
         if: failure()

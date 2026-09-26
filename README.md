@@ -15,7 +15,7 @@ A production-grade SRE and observability lab demonstrating cloud-native monitori
 - **Multi-Window Burn-Rate Alerting:** Dual-window error budget burn-rate alerts (14.4x fast / 6x slow) in the style of the Google SRE workbook, not static thresholds.
 - **Alert Routing & Delivery:** Alertmanager routes by severity (critical → pager, warning → ticket) to a webhook receiver that logs alerts and exposes `alerts_received_total`, scraped by Prometheus.
 - **Infrastructure Alerting:** `up==0` liveness alerts for every monitored target (API, Alertmanager, webhook receiver, Promtail, Loki) so the monitoring pipeline itself is watched.
-- **Log Aggregation:** Structured JSON logs from the API shipped via Promtail to Loki, queryable from Grafana.
+- **Log Aggregation:** Single-line JSON logs — application events plus uvicorn access/startup logs — shipped via Promtail to Loki, queryable from Grafana.
 - **Chaos Engineering:** Runtime fault injection (latency spikes, error storms, gradual degradation) controlled via API endpoints (optional `X-Chaos-Token` guard).
 - **Operational Runbooks:** Structured incident response documentation for high error rates, high latency and infrastructure availability scenarios.
 
