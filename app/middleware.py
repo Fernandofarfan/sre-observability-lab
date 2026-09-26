@@ -100,7 +100,7 @@ class PrometheusMiddleware:
         HTTP_REQUESTS_IN_PROGRESS.labels(method=method).inc()
         try:
             await self.app(scope, receive, send_wrapper)
-        except Exception:
+        except BaseException:
             _record(method, scope, "500", start)
             raise
         _record(method, scope, status_code, start)

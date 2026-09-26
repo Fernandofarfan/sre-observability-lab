@@ -49,7 +49,7 @@ The dual-window condition means a brief single-window spike will not alert; both
 
 5. **Verify Alert Delivery**
    ```bash
-   curl http://localhost:9095/metrics | grep alerts_received_total
+   curl -sL http://localhost:9095/metrics | grep alerts_received_total
    docker compose logs webhook-receiver --tail 50
    ```
 

@@ -62,12 +62,3 @@ def setup_telemetry(app: FastAPI) -> None:
     trace.set_tracer_provider(_PROVIDER)
     FastAPIInstrumentor.instrument_app(app)
     HTTPXClientInstrumentor().instrument()
-
-
-def get_tracer() -> trace.Tracer:
-    """Return a named tracer for manual span creation.
-
-    Returns:
-        A tracer instance bound to the configured provider.
-    """
-    return trace.get_tracer(settings.SERVICE_NAME, settings.SERVICE_VERSION)

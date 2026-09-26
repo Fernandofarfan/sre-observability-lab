@@ -16,8 +16,6 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     CHAOS_ENABLED: bool = True
     CHAOS_TOKEN: str = ""
-    CHAOS_LATENCY_MS: int = 0
-    CHAOS_ERROR_RATE: float = 0.0
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
