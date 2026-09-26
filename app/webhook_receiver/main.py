@@ -12,6 +12,35 @@ ALERTS_RECEIVED = Counter(
     ["receiver", "severity", "status", "alertname"],
 )
 
+_KNOWN_ALERTS = frozenset(
+    {
+        "ErrorBudgetBurnRate_Fast",
+        "ErrorBudgetBurnRate_Slow",
+        "HighLatency_P95",
+        "CriticalLatency_P99",
+        "HighRequestConcurrency",
+    }
+)
+_KNOWN_SEVERITIES = frozenset({"critical", "warning"})
+_KNOWN_STATUSES = frozenset({"firing", "resolved"})
+
+
+def _bounded(value: str, known: frozenset[str]) -> str:
+    """Bound a metric label value to a known set, falling back to 'other'.
+
+    The receiver is reachable from the host, so arbitrary payloads must not
+    be able to create unbounded time series.
+
+    Args:
+        value: The raw label value parsed from the payload.
+        known: The set of accepted values.
+
+    Returns:
+        The value itself when known, otherwise 'other'.
+    """
+    return value if value in known else "other"
+
+
 app = FastAPI(title="alertmanager-webhook-receiver", version="1.0.0")
 
 router = APIRouter()
@@ -74,9 +103,9 @@ async def _ingest(receiver: str, request: Request) -> dict[str, int]:
         status = str(alert.get("status", "unknown"))
         ALERTS_RECEIVED.labels(
             receiver=receiver,
-            severity=severity,
-            status=status,
-            alertname=alertname,
+            severity=_bounded(severity, _KNOWN_SEVERITIES),
+            status=_bounded(status, _KNOWN_STATUSES),
+            alertname=_bounded(alertname, _KNOWN_ALERTS),
         ).inc()
         logger.info(
             "alert_received",

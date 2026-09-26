@@ -70,3 +70,32 @@ async def test_non_alertmanager_payload_returns_502(receiver_client: httpx.Async
     """Verify JSON without an alerts field is rejected with 502."""
     response = await receiver_client.post("/", json={"foo": "bar"})
     assert response.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_unknown_label_values_are_bounded(receiver_client: httpx.AsyncClient) -> None:
+    """Verify arbitrary alertname/severity/status never become metric label values.
+
+    The receiver listens on the published host port, so unbounded label
+    values would allow anyone to create unlimited time series.
+    """
+    payload = {
+        "status": "weird-status",
+        "alerts": [
+            {
+                "status": "weird-status",
+                "labels": {"alertname": f"evil-{'x' * 200}", "severity": "banana"},
+                "annotations": {},
+            }
+        ],
+    }
+    response = await receiver_client.post("/", json=payload)
+    assert response.status_code == 200
+
+    metrics = await receiver_client.get("/metrics/")
+    body = metrics.text
+    assert 'alerts_received_total{alertname="other",' in body
+    assert 'severity="other"' in body
+    assert 'status="other"' in body
+    assert "evil-" not in body
+    assert "banana" not in body

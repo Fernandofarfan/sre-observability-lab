@@ -52,8 +52,9 @@ This indicates degraded performance affecting user experience, possibly due to s
 
 1. **If Latency Injection is Active:**
    ```bash
-   curl -X POST http://localhost:8000/chaos/reset
+   curl -X POST http://localhost:8000/chaos/reset -H "X-Chaos-Token: $CHAOS_TOKEN"
    ```
+   (The header is ignored when `CHAOS_TOKEN` is unset; required when it is configured.)
 
 2. **If a Specific Span is Slow:**
    - Identify the slow span from Jaeger traces

@@ -662,6 +662,7 @@
       ]
     }
   ],
+  "refresh": "5s",
   "schemaVersion": 39,
   "tags": ["sre", "observability", "golden-signals"],
   "templating": {

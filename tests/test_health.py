@@ -3,6 +3,8 @@
 import httpx
 import pytest
 
+from app.routes import health as health_module
+
 
 @pytest.mark.asyncio
 async def test_liveness(client: httpx.AsyncClient) -> None:
@@ -20,6 +22,21 @@ async def test_readiness(client: httpx.AsyncClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_readiness_503_when_telemetry_missing(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify /readyz returns 503 when no real TracerProvider is installed."""
+
+    class _UninitialisedProvider:
+        pass
+
+    monkeypatch.setattr(health_module, "TracerProvider", _UninitialisedProvider)
+    response = await client.get("/readyz")
+    assert response.status_code == 503
+    assert response.json()["detail"] == "telemetry not initialised"
 
 
 @pytest.mark.asyncio

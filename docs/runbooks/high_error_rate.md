@@ -33,7 +33,7 @@ The dual-window condition means a brief single-window spike will not alert; both
    ```bash
    docker compose logs api --tail 100
    ```
-   Or query the same logs in Grafana (Explore → Loki datasource, `{container="sre-lab-api"}`).
+   Or query the same logs in Grafana (Explore → Loki datasource, `{service="api"}`).
 
 3. **Check for Active Chaos Injection**
    ```bash
@@ -57,8 +57,9 @@ The dual-window condition means a brief single-window spike will not alert; both
 
 1. **If Chaos Engineering is Active:**
    ```bash
-   curl -X POST http://localhost:8000/chaos/reset
+   curl -X POST http://localhost:8000/chaos/reset -H "X-Chaos-Token: $CHAOS_TOKEN"
    ```
+   (The header is ignored when `CHAOS_TOKEN` is unset; required when it is configured.)
 
 2. **If a Bug is Identified:**
    - Identify the failing endpoint from Jaeger traces

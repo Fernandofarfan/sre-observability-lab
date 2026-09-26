@@ -144,3 +144,38 @@ async def test_chaos_skipped_when_disabled_on_business_endpoint(
 
     monkeypatch.setattr(settings, "CHAOS_ENABLED", True)
     await client.post("/chaos/reset")
+
+
+@pytest.mark.asyncio
+async def test_latency_rejects_inverted_range(client: httpx.AsyncClient) -> None:
+    """Verify an enabled latency range with min_ms > max_ms is rejected with 422."""
+    response = await client.post(
+        "/chaos/latency", json={"enabled": True, "min_ms": 5000, "max_ms": 10}
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_latency_allows_inverted_range_when_disabled(client: httpx.AsyncClient) -> None:
+    """Verify range ordering is only enforced while latency injection is enabled."""
+    response = await client.post(
+        "/chaos/latency", json={"enabled": False, "min_ms": 5000, "max_ms": 10}
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_latency_rejects_negative_values(client: httpx.AsyncClient) -> None:
+    """Verify negative millisecond values are rejected with 422."""
+    response = await client.post(
+        "/chaos/latency", json={"enabled": True, "min_ms": -1, "max_ms": 100}
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_errors_rejects_rate_out_of_range(client: httpx.AsyncClient) -> None:
+    """Verify error rates outside [0.0, 1.0] are rejected with 422."""
+    for rate in (-0.1, 1.5):
+        response = await client.post("/chaos/errors", json={"enabled": True, "rate": rate})
+        assert response.status_code == 422

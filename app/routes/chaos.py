@@ -4,7 +4,7 @@ import hmac
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 from app.config import settings
 
@@ -17,15 +17,29 @@ class ChaosLatencyConfig(BaseModel):
     """Schema for latency injection configuration."""
 
     enabled: bool
-    min_ms: int = 0
-    max_ms: int = 0
+    min_ms: int = Field(default=0, ge=0)
+    max_ms: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def _validate_range(self) -> "ChaosLatencyConfig":
+        """Reject an inverted range, which would crash random.randint at request time.
+
+        Returns:
+            The validated configuration.
+
+        Raises:
+            ValueError: If latency is enabled and min_ms exceeds max_ms.
+        """
+        if self.enabled and self.min_ms > self.max_ms:
+            raise ValueError("min_ms must be <= max_ms when latency injection is enabled")
+        return self
 
 
 class ChaosErrorConfig(BaseModel):
     """Schema for error injection configuration."""
 
     enabled: bool
-    rate: float = 0.0
+    rate: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class ChaosState:
