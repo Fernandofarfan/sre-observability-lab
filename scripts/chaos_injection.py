@@ -2,16 +2,26 @@
 
 import argparse
 import asyncio
-import time
-from datetime import datetime, timezone
+import os
+from datetime import UTC, datetime
 
 import httpx
 
 
 def _log(message: str) -> None:
     """Print a timestamped log message."""
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     print(f"[{ts}] {message}")
+
+
+def _headers() -> dict[str, str]:
+    """Return auth headers for chaos endpoints.
+
+    Returns:
+        Headers containing X-Chaos-Token when CHAOS_TOKEN is set, else empty.
+    """
+    token = os.environ.get("CHAOS_TOKEN", "")
+    return {"X-Chaos-Token": token} if token else {}
 
 
 async def latency_spike(client: httpx.AsyncClient, base_url: str) -> None:
@@ -22,25 +32,35 @@ async def latency_spike(client: httpx.AsyncClient, base_url: str) -> None:
         base_url: The API base URL.
     """
     _log("SCENARIO: latency-spike — Enabling 500-2000ms latency for 60s")
-    await client.post(f"{base_url}/chaos/latency", json={"enabled": True, "min_ms": 500, "max_ms": 2000})
+    await client.post(
+        f"{base_url}/chaos/latency",
+        json={"enabled": True, "min_ms": 500, "max_ms": 2000},
+        headers=_headers(),
+    )
     _log("Latency injection active")
     await asyncio.sleep(60)
-    await client.post(f"{base_url}/chaos/reset")
+    await client.post(f"{base_url}/chaos/reset", headers=_headers())
     _log("Latency injection stopped — chaos reset")
 
 
 async def error_storm(client: httpx.AsyncClient, base_url: str) -> None:
-    """Inject 30% error rate for 30 seconds.
+    """Inject 30% error rate for 4 minutes.
+
+    Long enough for the 10m/1m error budget burn-rate alert to fire live.
 
     Args:
         client: The HTTP client.
         base_url: The API base URL.
     """
-    _log("SCENARIO: error-storm — Enabling 30% error rate for 30s")
-    await client.post(f"{base_url}/chaos/errors", json={"enabled": True, "rate": 0.3})
+    _log("SCENARIO: error-storm — Enabling 30% error rate for 4m")
+    await client.post(
+        f"{base_url}/chaos/errors",
+        json={"enabled": True, "rate": 0.3},
+        headers=_headers(),
+    )
     _log("Error injection active")
-    await asyncio.sleep(30)
-    await client.post(f"{base_url}/chaos/reset")
+    await asyncio.sleep(240)
+    await client.post(f"{base_url}/chaos/reset", headers=_headers())
     _log("Error injection stopped — chaos reset")
 
 
@@ -59,32 +79,37 @@ async def gradual_degradation(client: httpx.AsyncClient, base_url: str) -> None:
         await client.post(
             f"{base_url}/chaos/latency",
             json={"enabled": True, "min_ms": latency_ms, "max_ms": latency_ms + 50},
+            headers=_headers(),
         )
         await asyncio.sleep(10)
 
-    await client.post(f"{base_url}/chaos/reset")
+    await client.post(f"{base_url}/chaos/reset", headers=_headers())
     _log("Gradual degradation complete — chaos reset")
 
 
 async def full_chaos(client: httpx.AsyncClient, base_url: str) -> None:
-    """Combine 300-800ms latency + 15% error rate for 45 seconds.
+    """Combine 300-800ms latency + 20% error rate for 5 minutes.
+
+    Long enough for the 10m/1m error budget burn-rate alert to fire live.
 
     Args:
         client: The HTTP client.
         base_url: The API base URL.
     """
-    _log("SCENARIO: full-chaos — Enabling latency (300-800ms) + errors (15%) for 45s")
+    _log("SCENARIO: full-chaos — Enabling latency (300-800ms) + errors (20%) for 5m")
     await client.post(
         f"{base_url}/chaos/latency",
         json={"enabled": True, "min_ms": 300, "max_ms": 800},
+        headers=_headers(),
     )
     await client.post(
         f"{base_url}/chaos/errors",
-        json={"enabled": True, "rate": 0.15},
+        json={"enabled": True, "rate": 0.2},
+        headers=_headers(),
     )
     _log("Full chaos active")
-    await asyncio.sleep(45)
-    await client.post(f"{base_url}/chaos/reset")
+    await asyncio.sleep(300)
+    await client.post(f"{base_url}/chaos/reset", headers=_headers())
     _log("Full chaos stopped — chaos reset")
 
 

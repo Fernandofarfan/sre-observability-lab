@@ -1,47 +1,74 @@
 groups:
   - name: sre-lab-alerts
     rules:
-      # ---- Availability (Error Rate) ----
-      - alert: HighErrorRate_BurnRate_1h
+      # ---- Availability: multi-window, multi-burn-rate alerting ----
+      # SLO 99.5% -> error budget 0.5%. Burn rate = error_rate / 0.005.
+      #   fast burn 14.4x -> error rate > 7.2%
+      #   slow burn   6x  -> error rate > 3%
+      # Window pairs are scaled down for the lab (canonical Google SRE
+      # workbook pairs are 1h+5m, 6h+30m, 2d+1h); the dual-window structure
+      # is preserved so brief single-window spikes do not page.
+
+      - alert: ErrorBudgetBurnRate_Fast
         expr: >
           (
-            1 - (
-              sum(rate(http_requests_total{status_code!~"5.."}[1h]))
+            (1 - (
+              sum(rate(http_requests_total{status_code!~"5.."}[10m]))
               /
-              sum(rate(http_requests_total[1h]))
-            )
-          ) > 0.02
+              sum(rate(http_requests_total[10m]))
+            )) > 0.072
+          )
+          and
+          (
+            (1 - (
+              sum(rate(http_requests_total{status_code!~"5.."}[1m]))
+              /
+              sum(rate(http_requests_total[1m]))
+            )) > 0.072
+          )
+        for: 1m
+        labels:
+          severity: critical
+          slo: availability
+          burn_rate: fast
+        annotations:
+          summary: "Fast error budget burn: error rate > 7.2% (14.4x) on 10m and 1m windows"
+          description: >
+            The 5xx error rate exceeds 7.2% on both the 10-minute and
+            1-minute windows — 14.4x the 0.5% availability error budget.
+            At this rate the rolling 30-minute 99.5% objective is already
+            mathematically unreachable for the current window.
+          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_error_rate.md"
+
+      - alert: ErrorBudgetBurnRate_Slow
+        expr: >
+          (
+            (1 - (
+              sum(rate(http_requests_total{status_code!~"5.."}[30m]))
+              /
+              sum(rate(http_requests_total[30m]))
+            )) > 0.03
+          )
+          and
+          (
+            (1 - (
+              sum(rate(http_requests_total{status_code!~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total[5m]))
+            )) > 0.03
+          )
         for: 5m
         labels:
           severity: warning
           slo: availability
+          burn_rate: slow
         annotations:
-          summary: "High error rate detected (>2% in 1h window)"
+          summary: "Slow error budget burn: error rate > 3% (6x) on 30m and 5m windows"
           description: >
-            The service error rate has exceeded 2% over a 1-hour window,
-            indicating an Error Budget burn that threatens the 99.5% SLO.
-            Current error rate: {{ $value | humanizePercentage }}.
-          runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_error_rate.md"
-
-      - alert: CriticalErrorRate_BurnRate_5m
-        expr: >
-          (
-            1 - (
-              sum(rate(http_requests_total{status_code!~"5.."}[5m]))
-              /
-              sum(rate(http_requests_total[5m]))
-            )
-          ) > 0.10
-        for: 2m
-        labels:
-          severity: critical
-          slo: availability
-        annotations:
-          summary: "Critical error rate detected (>10% in 5m window)"
-          description: >
-            The service error rate has exceeded 10% over a 5-minute window.
-            This represents a severe Error Budget burn requiring immediate action.
-            Current error rate: {{ $value | humanizePercentage }}.
+            The 5xx error rate exceeds 3% on both the 30-minute and
+            5-minute windows — 6x the 0.5% availability error budget.
+            The error budget is being consumed far faster than the
+            99.5% SLO allows.
           runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_error_rate.md"
 
       # ---- Latency ----
@@ -49,15 +76,16 @@ groups:
         expr: >
           histogram_quantile(0.95,
             sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
-          ) > 0.5
-        for: 5m
+          ) > 0.25
+        for: 2m
         labels:
           severity: warning
           slo: latency
         annotations:
-          summary: "P95 latency exceeds 500ms"
+          summary: "P95 latency exceeds the 250ms latency SLO"
           description: >
-            The 95th percentile request latency has exceeded 500ms for 5 minutes.
+            The 95th percentile request latency has exceeded 250ms
+            (the latency SLO threshold) for 2 minutes.
             Current P95: {{ $value | humanizeDuration }}.
           runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_latency.md"
 
@@ -79,15 +107,16 @@ groups:
 
       # ---- Saturation ----
       - alert: HighRequestConcurrency
-        expr: avg_over_time(http_requests_in_progress[1m]) > 50
+        expr: >
+          sum(http_requests_in_progress) > 50
         for: 1m
         labels:
           severity: warning
           slo: saturation
         annotations:
-          summary: "High concurrent request count (>50 for 1m)"
+          summary: "High concurrent request count (>50 total in-flight for 1m)"
           description: >
-            The number of concurrent in-flight requests has exceeded 50
+            Total concurrent in-flight requests has exceeded 50
             for more than 1 minute, indicating potential resource saturation.
             Current value: {{ $value }}.
           runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_latency.md"

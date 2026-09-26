@@ -1,4 +1,4 @@
-.PHONY: up down logs logs-all test lint format typecheck traffic chaos-latency chaos-errors chaos-gradual chaos-full clean status
+.PHONY: up down logs logs-all test lint format typecheck traffic chaos-latency chaos-errors chaos-gradual chaos-full clean status hooks
 
 up:
 	docker compose up -d --build
@@ -13,7 +13,7 @@ logs-all:
 	docker compose logs -f
 
 test:
-	pytest tests/ -v --tb=short
+	pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
 
 lint:
 	ruff check app/ tests/ scripts/
@@ -23,6 +23,9 @@ format:
 
 typecheck:
 	mypy app/ --ignore-missing-imports
+
+hooks:
+	pre-commit install
 
 traffic:
 	python scripts/traffic_generator.py --duration 300

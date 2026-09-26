@@ -7,11 +7,28 @@ route:
   group_wait: 10s
   group_interval: 10s
   repeat_interval: 1h
+  routes:
+    - receiver: "pager"
+      matchers:
+        - severity="critical"
+    - receiver: "ticket"
+      matchers:
+        - severity="warning"
 
 receivers:
   - name: "default"
     webhook_configs:
-      - url: "http://localhost:9095/"
+      - url: "http://webhook-receiver:9095/"
+        send_resolved: true
+
+  - name: "pager"
+    webhook_configs:
+      - url: "http://webhook-receiver:9095/pager"
+        send_resolved: true
+
+  - name: "ticket"
+    webhook_configs:
+      - url: "http://webhook-receiver:9095/ticket"
         send_resolved: true
 
 inhibit_rules:

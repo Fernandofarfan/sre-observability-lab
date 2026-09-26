@@ -1,10 +1,8 @@
 """Order service - business logic for order creation and retrieval."""
 
-import asyncio
-import random
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from opentelemetry import trace
@@ -34,7 +32,7 @@ class Order:
     items: list[OrderItem] = field(default_factory=list)
     total: float = 0.0
     status: str = "pending"
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 orders_db: dict[str, Order] = {}

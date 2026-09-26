@@ -88,8 +88,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 5 }
+              { "color": "yellow", "value": 3 },
+              { "color": "red", "value": 7.2 }
             ]
           },
           "unit": "percent"
@@ -204,7 +204,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "http_requests_in_progress{job=\"$job\"}",
+          "expr": "sum(http_requests_in_progress{job=\"$job\"})",
           "legendFormat": "In Progress",
           "refId": "A"
         }
@@ -478,8 +478,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "transparent", "value": null },
-              { "color": "yellow", "value": 2 },
-              { "color": "red", "value": 10 }
+              { "color": "yellow", "value": 3 },
+              { "color": "red", "value": 7.2 }
             ]
           },
           "unit": "percent"
@@ -614,7 +614,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "http_requests_in_progress{job=\"$job\"}",
+          "expr": "sum(http_requests_in_progress{job=\"$job\"})",
           "legendFormat": "In Progress",
           "refId": "A"
         }
@@ -655,7 +655,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "http_requests_in_progress{job=\"$job\"}",
+          "expr": "sum(http_requests_in_progress{job=\"$job\"})",
           "legendFormat": "In Progress",
           "refId": "A"
         }

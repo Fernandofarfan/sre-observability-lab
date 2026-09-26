@@ -10,6 +10,9 @@ build/
 .venv/
 venv/
 *.log
+.coverage
+coverage.xml
+htmlcov/
 .idea/
 .vscode/
 .DS_Store

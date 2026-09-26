@@ -3,6 +3,8 @@
 import httpx
 import pytest
 
+from app.config import settings
+
 
 @pytest.mark.asyncio
 async def test_configure_latency(client: httpx.AsyncClient) -> None:
@@ -77,4 +79,68 @@ async def test_chaos_error_injection_on_order(client: httpx.AsyncClient) -> None
     assert response.status_code == 500
     assert response.json()["detail"] == "Chaos-injected internal error"
 
+    await client.post("/chaos/reset")
+
+
+@pytest.mark.asyncio
+async def test_chaos_disabled_returns_403(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify mutation endpoints are blocked when CHAOS_ENABLED is false."""
+    monkeypatch.setattr(settings, "CHAOS_ENABLED", False)
+
+    response = await client.post(
+        "/chaos/latency", json={"enabled": True, "min_ms": 10, "max_ms": 20}
+    )
+    assert response.status_code == 403
+    assert "disabled" in response.json()["detail"]
+
+    status = await client.get("/chaos/status")
+    assert status.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_chaos_requires_token_when_configured(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify X-Chaos-Token is enforced when CHAOS_TOKEN is set."""
+    monkeypatch.setattr(settings, "CHAOS_TOKEN", "s3cret-token")
+
+    missing = await client.post("/chaos/errors", json={"enabled": True, "rate": 0.1})
+    assert missing.status_code == 401
+
+    wrong = await client.post(
+        "/chaos/errors",
+        json={"enabled": True, "rate": 0.1},
+        headers={"X-Chaos-Token": "wrong"},
+    )
+    assert wrong.status_code == 401
+
+    ok = await client.post(
+        "/chaos/errors",
+        json={"enabled": True, "rate": 0.1},
+        headers={"X-Chaos-Token": "s3cret-token"},
+    )
+    assert ok.status_code == 200
+
+    await client.post("/chaos/reset", headers={"X-Chaos-Token": "s3cret-token"})
+    monkeypatch.setattr(settings, "CHAOS_TOKEN", "")
+
+
+@pytest.mark.asyncio
+async def test_chaos_skipped_when_disabled_on_business_endpoint(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify no errors are injected into business endpoints when chaos is disabled."""
+    await client.post("/chaos/errors", json={"enabled": True, "rate": 1.0})
+    monkeypatch.setattr(settings, "CHAOS_ENABLED", False)
+
+    payload = {
+        "customer_id": "cust-disabled-test",
+        "items": [{"product_id": "prod-001", "quantity": 1, "price": 10.00}],
+    }
+    response = await client.post("/api/v1/orders", json=payload)
+    assert response.status_code == 201
+
+    monkeypatch.setattr(settings, "CHAOS_ENABLED", True)
     await client.post("/chaos/reset")

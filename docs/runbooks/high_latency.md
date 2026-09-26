@@ -11,7 +11,7 @@
 ## Description
 
 This alert fires when request latency exceeds the defined threshold:
-- **Warning:** P95 latency > 500ms sustained for 5 minutes.
+- **Warning:** P95 latency > 250ms (the latency SLO threshold) sustained for 2 minutes.
 - **Critical:** P99 latency > 1 second sustained for 2 minutes.
 
 This indicates degraded performance affecting user experience, possibly due to slow downstream calls, resource contention, or artificial latency injection.

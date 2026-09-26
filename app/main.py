@@ -1,5 +1,6 @@
 """SRE Observability Lab - FastAPI application entry point."""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
@@ -7,15 +8,18 @@ from fastapi import FastAPI
 from prometheus_client import make_asgi_app
 
 from app.config import settings
+from app.logging_setup import configure_logging
 from app.middleware import PrometheusMiddleware
 from app.routes import chaos, health, orders
 from app.telemetry import setup_telemetry
+
+configure_logging(settings.LOG_LEVEL)
 
 logger = structlog.get_logger()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ANN201
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler: initialise telemetry on startup."""
     setup_telemetry(app)
     logger.info(

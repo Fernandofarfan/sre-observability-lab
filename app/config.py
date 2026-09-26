@@ -12,8 +12,10 @@ class Settings(BaseSettings):
     SERVICE_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://otel-collector:4317"
+    OTEL_TRACES_EXPORTER: str = "otlp"
     LOG_LEVEL: str = "INFO"
     CHAOS_ENABLED: bool = True
+    CHAOS_TOKEN: str = ""
     CHAOS_LATENCY_MS: int = 0
     CHAOS_ERROR_RATE: float = 0.0
 

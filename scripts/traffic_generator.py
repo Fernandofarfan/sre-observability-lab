@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import random
 import time
-import uuid
 
 import httpx
 
@@ -99,7 +98,7 @@ async def run_traffic(
 
     final_avg = sum(latencies) / max(len(latencies), 1)
     final_error_rate = (total_errors / total_requests * 100) if total_requests > 0 else 0
-    print(f"\n--- Traffic Generation Complete ---")
+    print("\n--- Traffic Generation Complete ---")
     print(f"Total Requests: {total_requests}")
     print(f"Total Errors: {total_errors} ({final_error_rate:.1f}%)")
     print(f"Average Latency: {final_avg * 1000:.1f}ms")

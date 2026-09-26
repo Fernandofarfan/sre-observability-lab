@@ -9,11 +9,13 @@ A production-grade SRE and observability lab demonstrating cloud-native monitori
 ## What This Project Demonstrates
 
 - **OpenTelemetry Instrumentation:** Automatic and manual distributed tracing with FastAPI, exporting traces to Jaeger via an OTel Collector.
-- **Prometheus Metrics:** Custom HTTP metrics (counters, histograms, gauges) exposed via ASGI middleware, scraped by Prometheus.
+- **Prometheus Metrics:** Custom HTTP metrics (counters, histograms, gauges) exposed via ASGI middleware, scraped by Prometheus. Labels use route templates so cardinality stays bounded.
 - **Four Golden Signals Dashboard:** A complete Grafana dashboard visualizing Latency, Traffic, Errors, and Saturation in real-time.
 - **SLO/SLI Framework:** Formal definition of availability and latency SLOs with PromQL-based SLIs and Error Budget calculations.
-- **Burn-Rate Alerting:** Prometheus alert rules that trigger on Error Budget consumption rates, not static thresholds.
-- **Chaos Engineering:** Runtime fault injection (latency spikes, error storms, gradual degradation) controlled via API endpoints.
+- **Multi-Window Burn-Rate Alerting:** Dual-window error budget burn-rate alerts (14.4x fast / 6x slow) in the style of the Google SRE workbook, not static thresholds.
+- **Alert Routing & Delivery:** Alertmanager routes by severity (critical → pager, warning → ticket) to a webhook receiver that logs alerts and exposes `alerts_received_total`.
+- **Log Aggregation:** Structured JSON logs from the API shipped via Promtail to Loki, queryable from Grafana.
+- **Chaos Engineering:** Runtime fault injection (latency spikes, error storms, gradual degradation) controlled via API endpoints (optional `X-Chaos-Token` guard).
 - **Operational Runbooks:** Structured incident response documentation for high error rates and high latency scenarios.
 
 ## Architecture
@@ -26,6 +28,8 @@ graph LR
     API --> Prometheus
     Prometheus --> Grafana
     Prometheus --> Alertmanager
+    Alertmanager --> WebhookReceiver[Webhook Receiver]
+    API --> Promtail --> Loki --> Grafana
 ```
 
 ## Quick Start
@@ -47,6 +51,8 @@ make up
 | Prometheus | http://localhost:9090 | - |
 | Jaeger | http://localhost:16686 | - |
 | Alertmanager | http://localhost:9093 | - |
+| Loki | http://localhost:3100 | - |
+| Webhook Receiver | http://localhost:9095/healthz | - |
 
 ## Generate Traffic & Observe
 
@@ -65,16 +71,17 @@ make chaos-latency
 | Availability | Success rate (non-5xx) | 99.5% | 0.5% per 30m window |
 | Latency | P95 request duration | 250ms | N/A |
 
-Full definition in [`docs/slo-sli-definition.md`](docs/slo-sli-definition.md).
+Alerting uses multi-window burn rates (14.4x → critical, 6x → warning); full definition
+in [`docs/slo-sli-definition.md`](docs/slo-sli-definition.md).
 
 ## Chaos Scenarios
 
 | Scenario | Command | Effect |
 |----------|---------|--------|
 | `latency-spike` | `make chaos-latency` | 500-2000ms latency for 60s |
-| `error-storm` | `make chaos-errors` | 30% error rate for 30s |
+| `error-storm` | `make chaos-errors` | 30% error rate for 4m (fires the fast burn-rate alert live) |
 | `gradual-degradation` | `make chaos-gradual` | Latency ramps 0-1500ms over 2.5min |
-| `full-chaos` | `make chaos-full` | Latency (300-800ms) + errors (15%) for 45s |
+| `full-chaos` | `make chaos-full` | Latency (300-800ms) + errors (20%) for 5m |
 
 ## Project Structure
 
@@ -95,9 +102,10 @@ sre-observability-lab/
 
 ```bash
 pip install -r requirements-dev.txt
+make hooks       # Install pre-commit hooks (ruff + format)
 make lint        # Run ruff linter
 make typecheck   # Run mypy type checker
-make test        # Run pytest test suite
+make test        # Run pytest test suite with coverage
 ```
 
 ## Tech Stack

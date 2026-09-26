@@ -1,8 +1,12 @@
 """Chaos engineering endpoints for runtime fault injection."""
 
+import hmac
+
 import structlog
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+
+from app.config import settings
 
 logger = structlog.get_logger()
 
@@ -43,7 +47,30 @@ class ChaosStatusResponse(BaseModel):
     errors: ChaosErrorConfig
 
 
-@router.post("/latency")
+async def require_chaos_enabled(request: Request) -> None:
+    """Guard for chaos mutation endpoints.
+
+    Enforces the CHAOS_ENABLED setting and, when CHAOS_TOKEN is set,
+    requires a matching X-Chaos-Token header.
+
+    Args:
+        request: The incoming FastAPI request.
+
+    Raises:
+        403: If chaos injection is disabled via CHAOS_ENABLED.
+        401: If CHAOS_TOKEN is set and the header is missing or wrong.
+    """
+    if not settings.CHAOS_ENABLED:
+        raise HTTPException(
+            status_code=403, detail="Chaos injection disabled (CHAOS_ENABLED=false)"
+        )
+    if settings.CHAOS_TOKEN:
+        provided = request.headers.get("X-Chaos-Token", "")
+        if not hmac.compare_digest(provided, settings.CHAOS_TOKEN):
+            raise HTTPException(status_code=401, detail="Missing or invalid X-Chaos-Token header")
+
+
+@router.post("/latency", dependencies=[Depends(require_chaos_enabled)])
 async def configure_latency(config: ChaosLatencyConfig) -> ChaosLatencyConfig:
     """Enable or disable artificial latency injection.
 
@@ -63,7 +90,7 @@ async def configure_latency(config: ChaosLatencyConfig) -> ChaosLatencyConfig:
     return config
 
 
-@router.post("/errors")
+@router.post("/errors", dependencies=[Depends(require_chaos_enabled)])
 async def configure_errors(config: ChaosErrorConfig) -> ChaosErrorConfig:
     """Enable or disable artificial error rate injection.
 
@@ -88,7 +115,7 @@ async def chaos_status() -> ChaosStatusResponse:
     return ChaosStatusResponse(latency=chaos_state.latency, errors=chaos_state.errors)
 
 
-@router.post("/reset")
+@router.post("/reset", dependencies=[Depends(require_chaos_enabled)])
 async def reset_chaos() -> dict[str, str]:
     """Disable all chaos injection and reset to defaults.
 

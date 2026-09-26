@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
+from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.sdk.trace import TracerProvider
 
 from app.config import settings
@@ -26,9 +26,10 @@ _PROVIDER: TracerProvider | None = None
 def setup_telemetry(app: FastAPI) -> None:
     """Initialize OpenTelemetry tracing and instrument FastAPI.
 
-    When the OTEL_EXPORTER_OTLP_ENDPOINT is reachable, traces are exported
-    via OTLP/gRPC. Otherwise, a no-op exporter is used and the app functions
-    normally with local tracing only.
+    Spans are exported via OTLP/gRPC to the configured collector endpoint
+    (the OTel Collector forwards them to Jaeger). Set
+    OTEL_TRACES_EXPORTER=none to disable export entirely, which is useful
+    in CI or local runs without a collector.
 
     Args:
         app: The FastAPI application instance to instrument.
@@ -36,9 +37,14 @@ def setup_telemetry(app: FastAPI) -> None:
     global _PROVIDER  # noqa: PLW0603
 
     _PROVIDER = TracerProvider(resource=_RESOURCE)
-    use_otlp = "localhost" in settings.OTEL_EXPORTER_OTLP_ENDPOINT or "127.0.0.1" in settings.OTEL_EXPORTER_OTLP_ENDPOINT
 
-    if use_otlp:
+    if settings.OTEL_TRACES_EXPORTER.lower() == "none":
+        logger.info(
+            "telemetry_configured",
+            exporter="none",
+            note="OTLP export disabled via OTEL_TRACES_EXPORTER",
+        )
+    else:
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
@@ -47,12 +53,10 @@ def setup_telemetry(app: FastAPI) -> None:
             insecure=True,
         )
         _PROVIDER.add_span_processor(BatchSpanProcessor(exporter))
-        logger.info("telemetry_configured", exporter="otlp", endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT)
-    else:
         logger.info(
             "telemetry_configured",
-            exporter="noop",
-            note="OTLP endpoint not local, tracing active but not exported",
+            exporter="otlp",
+            endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
         )
 
     trace.set_tracer_provider(_PROVIDER)

@@ -4,17 +4,17 @@
 
 | Field | Value |
 |-------|-------|
-| **Alert Name** | `HighErrorRate_BurnRate_1h` / `CriticalErrorRate_BurnRate_5m` |
-| **Severity** | warning / critical |
+| **Alert Name** | `ErrorBudgetBurnRate_Fast` / `ErrorBudgetBurnRate_Slow` |
+| **Severity** | critical / warning |
 | **SLO** | Availability (99.5%) |
 
 ## Description
 
-This alert fires when the HTTP 5xx error rate exceeds the defined threshold:
-- **Warning:** Error rate > 2% sustained over a 1-hour window.
-- **Critical:** Error rate > 10% sustained over a 5-minute window.
+These alerts fire on **error budget burn rate** (not static thresholds):
+- **Critical (`ErrorBudgetBurnRate_Fast`):** error rate > 7.2% (14.4x burn of the 0.5% budget) sustained on both the 10-minute and 1-minute windows.
+- **Warning (`ErrorBudgetBurnRate_Slow`):** error rate > 3% (6x burn) sustained on both the 30-minute and 5-minute windows.
 
-This indicates the service is consuming its Error Budget at an unsustainable rate and may breach its availability SLO.
+The dual-window condition means a brief single-window spike will not alert; both the long and short window must be over budget simultaneously.
 
 ## Impact
 
@@ -33,7 +33,7 @@ This indicates the service is consuming its Error Budget at an unsustainable rat
    ```bash
    docker compose logs api --tail 100
    ```
-   Look for stack traces, exception messages, or error patterns.
+   Or query the same logs in Grafana (Explore → Loki datasource, `{container="sre-lab-api"}`).
 
 3. **Check for Active Chaos Injection**
    ```bash
@@ -46,6 +46,12 @@ This indicates the service is consuming its Error Budget at an unsustainable rat
    - Select the `sre-observability-lab` service
    - Filter by operation name and look for error tags on spans
    - Identify which endpoint is failing and what the root cause error is
+
+5. **Verify Alert Delivery**
+   ```bash
+   curl http://localhost:9095/metrics | grep alerts_received_total
+   docker compose logs webhook-receiver --tail 50
+   ```
 
 ## Remediation Steps
 
