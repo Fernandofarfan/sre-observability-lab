@@ -117,7 +117,7 @@ make test        # Run pytest test suite with coverage
 | OpenTelemetry | 1.27+ | Distributed tracing |
 | Prometheus | 2.54 | Metrics collection |
 | Grafana | 11.2 | Dashboard visualization |
-| Jaeger | 1.61 | Trace storage & UI |
+| Jaeger | 1.61.0 | Trace storage & UI |
 | Alertmanager | 0.27 | Alert routing |
 | Docker Compose | v2 | Container orchestration |
 
