@@ -149,6 +149,18 @@ jobs:
               --data-urlencode 'limit=1' \
               | jq -e '.data.result | length > 0' > /dev/null
           }
+          check_prometheus_ready() {
+            curl -fsS 'http://localhost:9090/-/ready' > /dev/null
+          }
+          check_grafana_ready() {
+            curl -fsS 'http://localhost:3000/api/health' | jq -e '.database == "ok"' > /dev/null
+          }
+          check_alertmanager_ready() {
+            curl -fsS 'http://localhost:9093/-/ready' > /dev/null
+          }
+          check_loki_ready() {
+            curl -fsS 'http://localhost:3100/ready' > /dev/null
+          }
 
           echo "== API =="
           curl -fsS http://localhost:8000/healthz
@@ -166,20 +178,17 @@ jobs:
           echo
 
           echo "== Prometheus =="
-          curl -fsS http://localhost:9090/-/ready
-          echo
+          retry "prometheus ready" 12 5 check_prometheus_ready
           retry "prometheus scraping api" 24 5 check_up
 
           echo "== Grafana =="
-          curl -fsS http://localhost:3000/api/health | jq -e '.database == "ok"'
+          retry "grafana ready" 12 5 check_grafana_ready
 
           echo "== Alertmanager =="
-          curl -fsS http://localhost:9093/-/ready
-          echo
+          retry "alertmanager ready" 12 5 check_alertmanager_ready
 
           echo "== Loki =="
-          curl -fsS http://localhost:3100/ready
-          echo
+          retry "loki ready" 12 5 check_loki_ready
           retry "logs ingested into loki" 30 5 check_logs
 
           echo "== Jaeger =="
