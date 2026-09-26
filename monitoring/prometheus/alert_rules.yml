@@ -120,3 +120,66 @@ groups:
             for more than 1 minute, indicating potential resource saturation.
             Current value: {{ $value }}.
           runbook_url: "https://github.com/Fernandofarfan/sre-observability-lab/blob/main/docs/runbooks/high_latency.md"
+
+  # ---- Infrastructure availability: scrape target liveness ----
+  - name: sre-lab-infra
+    rules:
+      - alert: ApiDown
+        expr: up{job="sre-lab-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API scrape target is down"
+          description: >
+            Prometheus has failed to scrape up{job="sre-lab-api"} for more
+            than 1 minute — the API container is dead or unreachable, so
+            golden-signal dashboards and SLO alerts are blind.
+
+      - alert: AlertmanagerDown
+        expr: up{job="sre-lab-alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alertmanager is down — alert delivery is broken"
+          description: >
+            Prometheus has failed to scrape up{job="sre-lab-alertmanager"}
+            for more than 1 minute — firing alerts are not being routed or
+            deduplicated, so nobody is being notified.
+
+      - alert: WebhookReceiverDown
+        expr: up{job="sre-lab-webhook-receiver"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Webhook receiver is down — alert delivery metrics are blind"
+          description: >
+            Prometheus has failed to scrape up{job="sre-lab-webhook-receiver"}
+            for more than 1 minute — Alertmanager webhook notifications can
+            no longer be delivered or observed.
+
+      - alert: PromtailDown
+        expr: up{job="sre-lab-promtail"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Promtail is down — logs are not being shipped"
+          description: >
+            Prometheus has failed to scrape up{job="sre-lab-promtail"} for
+            more than 2 minutes — container logs are no longer flowing into
+            Loki and log-based investigation is degraded.
+
+      - alert: LokiDown
+        expr: up{job="sre-lab-loki"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Loki is down — log queries will fail"
+          description: >
+            Prometheus has failed to scrape up{job="sre-lab-loki"} for more
+            than 1 minute — log ingestion and queries from Grafana are
+            unavailable.

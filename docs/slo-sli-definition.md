@@ -100,4 +100,6 @@ Firing alerts are routed by severity in Alertmanager:
 
 The webhook receiver logs every alert (structured JSON → Loki) and exposes
 `alerts_received_total{receiver, severity, status, alertname}` so delivery itself is
-observable.
+observable. Prometheus scrapes the receiver (job `sre-lab-webhook-receiver`), and
+infrastructure alerts (`ApiDown`, `AlertmanagerDown`, `WebhookReceiverDown`,
+`PromtailDown`, `LokiDown`) page when any part of this delivery pipeline dies.

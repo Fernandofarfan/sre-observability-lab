@@ -1,13 +1,10 @@
 """Order management endpoints for simulated e-commerce flow."""
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.middleware_chaos import chaos_dependency
 from app.services.order_service import OrderItem, create_order, get_order, list_orders
-
-logger = structlog.get_logger()
 
 router = APIRouter(
     prefix="/api/v1/orders",
@@ -61,7 +58,6 @@ async def create_order_endpoint(request: CreateOrderRequest) -> OrderResponse:
         for item in request.items
     ]
     order = await create_order(request.customer_id, order_items)
-    logger.info("order_created", order_id=order.order_id, total=order.total)
     return OrderResponse(
         order_id=order.order_id,
         customer_id=order.customer_id,

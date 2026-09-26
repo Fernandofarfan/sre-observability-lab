@@ -13,7 +13,8 @@ A production-grade SRE and observability lab demonstrating cloud-native monitori
 - **Four Golden Signals Dashboard:** A complete Grafana dashboard visualizing Latency, Traffic, Errors, and Saturation in real-time.
 - **SLO/SLI Framework:** Formal definition of availability and latency SLOs with PromQL-based SLIs and Error Budget calculations.
 - **Multi-Window Burn-Rate Alerting:** Dual-window error budget burn-rate alerts (14.4x fast / 6x slow) in the style of the Google SRE workbook, not static thresholds.
-- **Alert Routing & Delivery:** Alertmanager routes by severity (critical → pager, warning → ticket) to a webhook receiver that logs alerts and exposes `alerts_received_total`.
+- **Alert Routing & Delivery:** Alertmanager routes by severity (critical → pager, warning → ticket) to a webhook receiver that logs alerts and exposes `alerts_received_total`, scraped by Prometheus.
+- **Infrastructure Alerting:** `up==0` liveness alerts for every monitored target (API, Alertmanager, webhook receiver, Promtail, Loki) so the monitoring pipeline itself is watched.
 - **Log Aggregation:** Structured JSON logs from the API shipped via Promtail to Loki, queryable from Grafana.
 - **Chaos Engineering:** Runtime fault injection (latency spikes, error storms, gradual degradation) controlled via API endpoints (optional `X-Chaos-Token` guard).
 - **Operational Runbooks:** Structured incident response documentation for high error rates and high latency scenarios.
@@ -114,7 +115,7 @@ make test        # Run pytest test suite with coverage
 |------------|---------|---------|
 | Python | 3.12 | Application runtime |
 | FastAPI | 0.115+ | HTTP framework |
-| OpenTelemetry | 1.27+ | Distributed tracing |
+| OpenTelemetry | 1.44+ | Distributed tracing |
 | Prometheus | 2.54 | Metrics collection |
 | Grafana | 11.2 | Dashboard visualization |
 | Jaeger | 1.61.0 | Trace storage & UI |

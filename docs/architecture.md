@@ -21,7 +21,7 @@ graph LR
 | **API (FastAPI)** | Core application exposing business endpoints, instrumented with OpenTelemetry for distributed tracing and Prometheus metrics for monitoring. Runs a **single Uvicorn worker**: the Prometheus client registry and chaos state are per-process, so multiple workers would produce inconsistent scrapes and apply chaos to only a fraction of requests. |
 | **OTel Collector** | OpenTelemetry Collector that receives traces via gRPC/HTTP, processes them in batches, and forwards them to Jaeger via OTLP. |
 | **Jaeger** | Distributed tracing backend that stores and visualizes traces from the API, enabling latency analysis and request flow inspection. |
-| **Prometheus** | Time-series database that scrapes metrics from the API and evaluates alerting rules based on SLO burn rates. |
+| **Prometheus** | Time-series database that scrapes the API plus the observability pipeline itself (webhook receiver, Promtail, Alertmanager, Loki) and evaluates alerting rules: SLO burn rates and infrastructure `up==0` availability. |
 | **Grafana** | Visualization platform displaying the Four Golden Signals dashboard, plus log exploration over Loki. |
 | **Alertmanager** | Alert routing and deduplication: routes `severity=critical` to the pager receiver and `severity=warning` to the ticket receiver. |
 | **Webhook Receiver** | Small FastAPI service that ingests Alertmanager webhooks, emits structured JSON logs for every alert, and exposes `alerts_received_total` so notification delivery is itself observable. |

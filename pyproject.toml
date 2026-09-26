@@ -28,3 +28,13 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true

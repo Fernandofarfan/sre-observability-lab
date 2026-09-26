@@ -4,7 +4,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
 
 from app.config import settings
@@ -60,3 +61,24 @@ async def root() -> dict[str, str]:
         "version": settings.SERVICE_VERSION,
         "status": "operational",
     }
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Log unhandled exceptions as structured JSON before returning a generic 500.
+
+    Args:
+        request: The request that triggered the exception.
+        exc: The unhandled exception.
+
+    Returns:
+        A generic 500 JSON response.
+    """
+    logger.error(
+        "unhandled_exception",
+        method=request.method,
+        path=request.url.path,
+        error=repr(exc),
+        exc_info=True,
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})

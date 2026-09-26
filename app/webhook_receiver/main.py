@@ -4,6 +4,11 @@ import structlog
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from prometheus_client import Counter, make_asgi_app
 
+from app.config import settings
+from app.logging_setup import configure_logging
+
+configure_logging(settings.LOG_LEVEL)
+
 logger = structlog.get_logger()
 
 ALERTS_RECEIVED = Counter(

@@ -161,6 +161,31 @@ jobs:
           check_loki_ready() {
             curl -fsS 'http://localhost:3100/ready' > /dev/null
           }
+          check_alert_delivery_metric() {
+            curl -fsSG 'http://localhost:9090/api/v1/query' \
+              --data-urlencode 'query=alerts_received_total{job="sre-lab-webhook-receiver",receiver="pager",alertname="other"}' \
+              | jq -e '.data.result[0].value[1] | tonumber >= 1' > /dev/null
+          }
+          check_json_logs() {
+            local line
+            line=$(docker compose logs --no-log-prefix --tail 200 "$1" 2>/dev/null | grep '^{' | sed -n '1p')
+            [ -n "$line" ] && echo "$line" | jq -e '.timestamp' > /dev/null
+          }
+          check_no_tracebacks() {
+            local logs
+            logs=$(docker compose logs --no-log-prefix --tail 500 api 2>&1)
+            if grep -q Traceback <<< "$logs"; then
+              echo "FAILED: Traceback found in api logs"
+              return 1
+            fi
+          }
+          check_loki_service_label() {
+            curl -fsSG 'http://localhost:3100/loki/api/v1/query_range' \
+              --data-urlencode 'query={service=~"api|webhook-receiver"}' \
+              --data-urlencode "start=$(date -d '10 minutes ago' +%s)000000000" \
+              --data-urlencode 'limit=1' \
+              | jq -e '.data.result | length > 0' > /dev/null
+          }
 
           echo "== API =="
           curl -fsS http://localhost:8000/healthz
@@ -176,10 +201,15 @@ jobs:
           echo "== Webhook receiver =="
           curl -fsS http://localhost:9095/healthz
           echo
+          curl -fsS -X POST http://localhost:9095/pager \
+            -H 'Content-Type: application/json' \
+            -d '{"status":"firing","alerts":[{"status":"firing","labels":{"alertname":"E2ESmokeTest","severity":"critical"},"annotations":{"summary":"e2e smoke"}}]}'
+          echo
 
           echo "== Prometheus =="
           retry "prometheus ready" 12 5 check_prometheus_ready
           retry "prometheus scraping api" 24 5 check_up
+          retry "alert delivery metric scraped" 24 5 check_alert_delivery_metric
 
           echo "== Grafana =="
           retry "grafana ready" 12 5 check_grafana_ready
@@ -190,9 +220,16 @@ jobs:
           echo "== Loki =="
           retry "loki ready" 12 5 check_loki_ready
           retry "logs ingested into loki" 30 5 check_logs
+          retry "service label on logs in loki" 30 5 check_loki_service_label
 
           echo "== Jaeger =="
           retry "trace exported to jaeger" 30 5 check_trace
+
+          echo "== Structured logs =="
+          retry "api logs are structured JSON" 12 5 check_json_logs api
+          retry "receiver logs are structured JSON" 12 5 check_json_logs webhook-receiver
+          retry "no tracebacks in api logs" 3 5 check_no_tracebacks
+          echo "OK: no tracebacks in api logs"
 
       - name: Collect diagnostics on failure
         if: failure()
